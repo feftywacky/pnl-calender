@@ -19,6 +19,7 @@ export function AuthForm() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -26,14 +27,21 @@ export function AuthForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setLoading(true);
+
+    const siteUrl =
+      window.location.origin;
 
     const { error } = isLogin
       ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({
           email,
           password,
-          options: { data: { display_name: displayName } },
+          options: {
+            data: { display_name: displayName },
+            emailRedirectTo: `${siteUrl}/auth/callback`,
+          },
         });
 
     if (error) {
@@ -42,7 +50,13 @@ export function AuthForm() {
       return;
     }
 
-    router.push("/");
+    if (!isLogin) {
+      setSuccess("Check your email for a confirmation link.");
+      setLoading(false);
+      return;
+    }
+
+    router.push("/dashboard");
     router.refresh();
   }
 
@@ -88,6 +102,7 @@ export function AuthForm() {
             />
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
+          {success && <p className="text-sm text-green-600">{success}</p>}
           <Button type="submit" disabled={loading}>
             {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
           </Button>

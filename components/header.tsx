@@ -18,7 +18,7 @@ export function Header({
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/");
     router.refresh();
   }
 
@@ -29,9 +29,9 @@ export function Header({
           <h1 className="text-lg font-semibold">PnL Calendar</h1>
           <nav className="flex items-center gap-1">
             <Link
-              href="/"
+              href="/dashboard"
               className={`text-sm px-3 py-1.5 rounded-md transition-colors ${
-                pathname === "/"
+                pathname === "/dashboard"
                   ? "bg-secondary font-medium text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
