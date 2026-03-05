@@ -33,7 +33,7 @@ export default function LandingPage() {
             <p className="text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
               PnL Calendar is a simple, focused journal for traders. Log your
               trades, track your exits, and watch your performance come into
-              focus — day by day, month by month.
+              focus.
             </p>
           </div>
 
