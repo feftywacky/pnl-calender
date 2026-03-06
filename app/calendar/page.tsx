@@ -24,7 +24,7 @@ export default async function CalendarPage() {
         email={user.email ?? ""}
         displayName={profile?.displayName ?? ""}
       />
-      <main className="flex-1 min-h-0 flex flex-col w-full max-w-4xl mx-auto px-4 py-4">
+      <main className="flex-1 min-h-0 flex flex-col w-full px-4 py-4">
         <Calendar
           initialTrades={trades}
           initialYear={now.getFullYear()}

@@ -53,7 +53,7 @@ export function Header({
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-muted-foreground">
-            {displayName || email}
+            {email}
           </span>
           <ModeToggle />
           <Button variant="outline" size="sm" onClick={handleLogout}>

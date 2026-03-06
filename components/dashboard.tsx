@@ -152,7 +152,7 @@ export function Dashboard({ displayName, trades }: DashboardProps) {
   };
 
   const greeting = displayName
-    ? `Hello, ${displayName}`
+    ? `Hello ${displayName}`
     : "Hello";
 
   return (
@@ -269,7 +269,7 @@ export function Dashboard({ displayName, trades }: DashboardProps) {
                 <Line
                   type="monotone"
                   dataKey="cumulative"
-                  stroke="var(--color-cumulative)"
+                  stroke="#3b82f6"
                   strokeWidth={2}
                   dot={false}
                 />
@@ -279,47 +279,7 @@ export function Dashboard({ displayName, trades }: DashboardProps) {
         </Card>
       )}
 
-      {/* Monthly PnL bar chart */}
-      {monthlyData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Monthly PnL</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={monthlyChartConfig}
-              className="h-[300px] w-full"
-            >
-              <BarChart
-                data={monthlyData}
-                margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                  {monthlyData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        entry.pnl >= 0
-                          ? "oklch(0.65 0.2 145)"
-                          : "oklch(0.65 0.2 25)"
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      )}
+      {/* Monthly PnL bar chart — REMOVED */}
 
       {/* Daily PnL (last 60 trading days) */}
       {dailyData.length > 0 && (

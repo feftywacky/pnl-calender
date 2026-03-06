@@ -93,9 +93,9 @@ export function Calendar({
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
+    <div className="flex-1 min-h-0 flex flex-col items-center pb-8">
       {/* Month navigation */}
-      <div className="mb-2 flex items-center justify-between shrink-0">
+      <div className="mb-2 flex items-center justify-between shrink-0 w-full max-w-4xl">
         <Button variant="outline" size="sm" onClick={prevMonth}>
           &larr; Prev
         </Button>
@@ -119,23 +119,26 @@ export function Calendar({
         </Button>
       </div>
 
-      {/* Day-of-week headers */}
-      <div className="grid grid-cols-7 gap-1 mb-1 shrink-0">
-        {DAY_NAMES.map((d) => (
-          <div
-            key={d}
-            className="text-center text-xs font-medium text-muted-foreground py-1"
-          >
-            {d}
+      {/* Grid area — height-constrained so cells stay square */}
+      <div className="flex-1 min-h-0 w-full flex justify-center">
+        <div
+          className="max-h-full max-w-4xl"
+          style={{ aspectRatio: `7 / ${numRows}` }}
+        >
+          {/* Day-of-week headers */}
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {DAY_NAMES.map((d) => (
+              <div
+                key={d}
+                className="text-center text-xs font-medium text-muted-foreground py-1"
+              >
+                {d}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Calendar grid */}
-      <div
-        className="flex-1 min-h-0 grid grid-cols-7 gap-1"
-        style={{ gridTemplateRows: `repeat(${numRows}, 1fr)` }}
-      >
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-1">
         {cells.map((day, i) => {
           if (day === null) {
             return <div key={`empty-${i}`} className="w-full h-full" />;
@@ -162,6 +165,8 @@ export function Calendar({
             />
           );
         })}
+          </div>
+        </div>
       </div>
 
       <TradeDialog

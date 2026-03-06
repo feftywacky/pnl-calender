@@ -25,19 +25,14 @@ export function DayCell({ day, pnl, totalIn, tradeCount, onClick }: DayCellProps
   return (
     <button
       onClick={onClick}
-      className={`w-full h-full rounded-md border relative flex items-center justify-center transition-colors cursor-pointer overflow-hidden ${bgClass}`}
+      className={`w-full aspect-square rounded-md border relative flex items-center justify-center transition-colors cursor-pointer overflow-hidden ${bgClass}`}
     >
       {/* Day number — top left */}
-      <div className="absolute top-1.5 left-2 flex items-center gap-1">
+      <div className="absolute top-1.5 left-2">
         <span className="text-xs font-medium leading-none">{day}</span>
-        {tradeCount > 1 && (
-          <span className="text-[10px] text-muted-foreground leading-none">
-            {tradeCount}x
-          </span>
-        )}
       </div>
 
-      {/* PnL — centered */}
+      {/* PnL + % + trade count — centered */}
       {pnl !== null && (
         <div className="flex flex-col items-center gap-0.5">
           <div
@@ -59,6 +54,11 @@ export function DayCell({ day, pnl, totalIn, tradeCount, onClick }: DayCellProps
               }`}
             >
               {pctStr}
+            </div>
+          )}
+          {tradeCount > 0 && (
+            <div className="text-[10px] text-muted-foreground leading-none mt-0.5">
+              {tradeCount}x
             </div>
           )}
         </div>

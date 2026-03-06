@@ -6,12 +6,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { saveDayTrades } from "@/lib/actions/trades";
 import type { TradeEntry } from "@/lib/types";
+import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 
 interface TradeDialogProps {
   open: boolean;
@@ -57,6 +60,16 @@ function localEntryPnl(entry: LocalEntry) {
   return totalOut - (parseFloat(entry.amount_in) || 0);
 }
 
+function formatDate(dateStr: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function TradeDialog({
   open,
   onClose,
@@ -69,11 +82,13 @@ export function TradeDialog({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   // New trade form state
   const [newName, setNewName] = useState("");
   const [newAmountIn, setNewAmountIn] = useState("");
-  const [newExits, setNewExits] = useState<string[]>([]);
+  const [newExits, setNewExits] = useState<string[]>([""]);
 
   // Only initialize when dialog transitions from closed -> open
   const prevOpen = useRef(false);
@@ -86,9 +101,11 @@ export function TradeDialog({
       setDirty(false);
       setSaving(false);
       setError(null);
+      setExpandedId(null);
+      setShowAddForm(false);
       setNewName("");
       setNewAmountIn("");
-      setNewExits([]);
+      setNewExits([""]);
     }
     prevOpen.current = open;
   }, [open, entriesForDay]);
@@ -111,6 +128,7 @@ export function TradeDialog({
     if (!entryId.startsWith("temp-")) {
       setDeletedEntryIds((prev) => [...prev, entryId]);
     }
+    if (expandedId === entryId) setExpandedId(null);
     setDirty(true);
   }
 
@@ -155,7 +173,7 @@ export function TradeDialog({
     setDirty(true);
   }
 
-  // -- New trade with exits --
+  // -- New trade helpers --
 
   function addNewExit() {
     setNewExits((prev) => [...prev, ""]);
@@ -170,8 +188,9 @@ export function TradeDialog({
   }
 
   function handleAddLocalEntry() {
+    const id = tempId();
     const entry: LocalEntry = {
-      id: tempId(),
+      id,
       name: newName.trim(),
       amount_in: newAmountIn || "0",
       exits: newExits
@@ -181,7 +200,8 @@ export function TradeDialog({
     setLocalEntries((prev) => [...prev, entry]);
     setNewName("");
     setNewAmountIn("");
-    setNewExits([]);
+    setNewExits([""]);
+    setShowAddForm(false);
     setDirty(true);
   }
 
@@ -192,6 +212,7 @@ export function TradeDialog({
       }
     }
     setLocalEntries([]);
+    setExpandedId(null);
     setDirty(true);
   }
 
@@ -241,247 +262,355 @@ export function TradeDialog({
         if (!o) onClose();
       }}
     >
-      <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Trades — {date}</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col gap-0 p-0">
+        {/* ── Header ── */}
+        <div className="px-6 pt-6 pb-4">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              {date ? formatDate(date) : "Trades"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              View and manage trades for this day
+            </DialogDescription>
+          </DialogHeader>
 
-        {localEntries.length > 0 && (
-          <div className="flex items-center justify-between shrink-0 -mt-1">
-            <span
-              className={`text-sm font-semibold ${
-                dayTotal >= 0 ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              Day total: {dayTotal >= 0 ? "+" : ""}
-              {dayTotal.toFixed(2)}
-              {dayPct !== null && ` (${dayTotal >= 0 ? "+" : ""}${dayPct}%)`}
-            </span>
-            <button
-              onClick={clearAllEntries}
-              disabled={saving}
-              className="text-xs text-muted-foreground hover:text-red-500 disabled:opacity-40 cursor-pointer underline"
-            >
-              Clear all
-            </button>
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto flex flex-col gap-4 pr-3">
-          {/* ── Existing / local entries ── */}
-          {localEntries.map((entry) => {
-            const pnl = localEntryPnl(entry);
-            const totalOut = entry.exits.reduce(
-              (s, e) => s + (parseFloat(e.amount_out) || 0),
-              0
-            );
-
-            return (
-              <div
-                key={entry.id}
-                className="rounded-lg border p-3 flex flex-col gap-3"
-              >
-                {/* Entry header with delete */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Trade
-                  </span>
-                  <button
-                    onClick={() => deleteLocalEntry(entry.id)}
-                    disabled={saving}
-                    className="text-xs text-muted-foreground hover:text-red-500 disabled:opacity-40 cursor-pointer"
-                    aria-label="Delete entry"
+          {/* Day summary */}
+          <div className="flex items-center justify-between mt-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-2xl font-bold tabular-nums ${
+                    dayTotal > 0 ? "text-green-600 dark:text-green-400" : dayTotal < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
+                  }`}
+                >
+                  {dayTotal >= 0 ? "+" : ""}${dayTotal.toFixed(2)}
+                </span>
+                {dayPct !== null && (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs font-medium ${
+                      dayTotal > 0
+                        ? "border-green-200 text-green-700 dark:border-green-800 dark:text-green-400"
+                        : dayTotal < 0
+                        ? "border-red-200 text-red-700 dark:border-red-800 dark:text-red-400"
+                        : "text-muted-foreground"
+                    }`}
                   >
-                    Delete trade
+                    {dayTotal >= 0 ? "+" : ""}{dayPct}%
+                  </Badge>
+                )}
+              </div>
+              {localEntries.length > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {localEntries.length} trade{localEntries.length !== 1 ? "s" : ""}
+                </span>
+                <button
+                  onClick={clearAllEntries}
+                  disabled={saving}
+                  className="text-xs text-muted-foreground hover:text-red-500 disabled:opacity-40 cursor-pointer transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+              )}
+            </div>
+        </div>
+
+        <Separator />
+
+        {/* ── Scrollable content ── */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="flex flex-col gap-2">
+            {/* ── Trade cards ── */}
+            {localEntries.map((entry) => {
+              const pnl = localEntryPnl(entry);
+              const totalOut = entry.exits.reduce(
+                (s, e) => s + (parseFloat(e.amount_out) || 0),
+                0
+              );
+              const isExpanded = expandedId === entry.id;
+
+              return (
+                <div
+                  key={entry.id}
+                  className="rounded-lg border bg-card transition-all"
+                >
+                  {/* Collapsed summary row */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                    className="w-full flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-muted/50 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium truncate">
+                        {entry.name || "Untitled"}
+                      </span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        ${parseFloat(entry.amount_in || "0").toFixed(2)} in
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span
+                        className={`text-sm font-semibold tabular-nums ${
+                          pnl > 0
+                            ? "text-green-600 dark:text-green-400"
+                            : pnl < 0
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)}
+                      </span>
+                      {isExpanded ? (
+                        <ChevronUp className="size-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="size-4 text-muted-foreground" />
+                      )}
+                    </div>
                   </button>
-                </div>
 
-                {/* Editable name */}
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">Name</Label>
-                  <Input
-                    type="text"
-                    value={entry.name}
-                    placeholder="e.g. SPY 0DTE Calls"
-                    className="h-8 text-sm"
-                    disabled={saving}
-                    onChange={(e) =>
-                      updateEntryField(entry.id, "name", e.target.value)
-                    }
-                  />
-                </div>
+                  {/* Expanded edit area */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1 border-t flex flex-col gap-3">
+                      {/* Name */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-muted-foreground">Name</label>
+                        <Input
+                          type="text"
+                          value={entry.name}
+                          placeholder="e.g. SPY 0DTE Calls"
+                          className="h-8 text-sm"
+                          disabled={saving}
+                          onChange={(e) =>
+                            updateEntryField(entry.id, "name", e.target.value)
+                          }
+                        />
+                      </div>
 
-                {/* Editable amount in */}
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">Amount In ($)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={entry.amount_in}
-                    className="h-8 text-sm"
-                    disabled={saving}
-                    onChange={(e) =>
-                      updateEntryField(entry.id, "amount_in", e.target.value)
-                    }
-                  />
-                </div>
-
-                {/* Exits / Amount Out list */}
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">Amount Out</Label>
-                  {entry.exits.length > 0 && (
-                    <div className="flex flex-col gap-1.5 pl-2 border-l-2 border-muted">
-                      {entry.exits.map((exit, exitIdx) => (
-                        <div key={exit.id} className="flex items-center gap-2">
-                          <span className="text-muted-foreground text-xs w-6 shrink-0">
-                            TP{exitIdx + 1}
-                          </span>
+                      {/* Amount in */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-muted-foreground">Amount In</label>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
                           <Input
                             type="number"
                             step="0.01"
                             min="0"
-                            value={exit.amount_out}
-                            className="h-7 text-sm flex-1"
+                            value={entry.amount_in}
+                            className="h-8 text-sm pl-6"
                             disabled={saving}
                             onChange={(e) =>
-                              updateExitAmount(
-                                entry.id,
-                                exit.id,
-                                e.target.value
-                              )
+                              updateEntryField(entry.id, "amount_in", e.target.value)
                             }
                           />
+                        </div>
+                      </div>
+
+                      {/* Exits */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-muted-foreground">Amount Out</label>
+                        <div className="flex flex-col gap-1.5">
+                          {entry.exits.map((exit, exitIdx) => (
+                            <div key={exit.id} className="flex items-center gap-1.5">
+                              <span className="text-xs text-muted-foreground w-5 shrink-0 text-right">
+                                {exitIdx + 1}.
+                              </span>
+                              <div className="relative flex-1">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={exit.amount_out}
+                                  className="h-7 text-sm pl-6"
+                                  disabled={saving}
+                                  onChange={(e) =>
+                                    updateExitAmount(
+                                      entry.id,
+                                      exit.id,
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
+                              <button
+                                onClick={() => deleteLocalExit(entry.id, exit.id)}
+                                disabled={saving}
+                                className="text-muted-foreground hover:text-red-500 disabled:opacity-40 cursor-pointer shrink-0 p-0.5 transition-colors"
+                                aria-label="Remove exit"
+                              >
+                                <X className="size-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          {entry.exits.length > 0 && (
+                            <div className="text-xs text-muted-foreground pl-6.5">
+                              Total out: ${totalOut.toFixed(2)}
+                            </div>
+                          )}
                           <button
-                            onClick={() => deleteLocalExit(entry.id, exit.id)}
+                            onClick={() => addLocalExit(entry.id)}
                             disabled={saving}
-                            className="text-muted-foreground hover:text-red-500 text-xs disabled:opacity-40 cursor-pointer shrink-0"
-                            aria-label="Delete exit"
+                            className="text-xs text-muted-foreground hover:text-foreground mt-0.5 text-left disabled:opacity-40 cursor-pointer flex items-center gap-1 transition-colors"
                           >
-                            ✕
+                            <Plus className="size-3" />
+                            Add exit
                           </button>
                         </div>
-                      ))}
-                      <div className="text-xs text-muted-foreground pt-0.5">
-                        Total out: ${totalOut.toFixed(2)}
+                      </div>
+
+                      {/* PnL + Delete row */}
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <span
+                          className={`text-sm font-semibold ${
+                            pnl > 0 ? "text-green-600 dark:text-green-400" : pnl < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
+                          }`}
+                        >
+                          PnL: {pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}
+                        </span>
+                        <button
+                          onClick={() => deleteLocalEntry(entry.id)}
+                          disabled={saving}
+                          className="text-xs text-muted-foreground hover:text-red-500 disabled:opacity-40 cursor-pointer flex items-center gap-1 transition-colors"
+                        >
+                          <Trash2 className="size-3" />
+                          Delete
+                        </button>
                       </div>
                     </div>
                   )}
+                </div>
+              );
+            })}
 
-                  <button
-                    onClick={() => addLocalExit(entry.id)}
+            {/* ── Add Trade ── */}
+            {showAddForm ? (
+              <div className="rounded-lg border border-dashed bg-card p-3 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    New Trade
+                  </span>
+                  {localEntries.length > 0 && (
+                    <button
+                      onClick={() => setShowAddForm(false)}
+                      className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Name */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Name</label>
+                  <Input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="e.g. SPY 0DTE Calls"
+                    className="h-8 text-sm"
                     disabled={saving}
-                    className="text-xs text-muted-foreground hover:text-foreground mt-1 text-left disabled:opacity-40 cursor-pointer"
-                  >
-                    + Add amount out
-                  </button>
+                    autoFocus
+                  />
                 </div>
 
-                {/* Entry PnL */}
-                <div
-                  className={`text-xs font-semibold border-t pt-2 ${
-                    pnl >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  PnL: {pnl >= 0 ? "+" : ""}
-                  {pnl.toFixed(2)}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* ── Add new trade ── */}
-          <div className="rounded-lg border border-dashed p-3 flex flex-col gap-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              New Trade
-            </p>
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="new-entry-name" className="text-xs">
-                  Name
-                </Label>
-                <Input
-                  id="new-entry-name"
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. SPY 0DTE Calls"
-                  disabled={saving}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="new-entry-amount" className="text-xs">
-                  Amount In ($)
-                </Label>
-                <Input
-                  id="new-entry-amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={newAmountIn}
-                  onChange={(e) => setNewAmountIn(e.target.value)}
-                  placeholder="0.00"
-                  disabled={saving}
-                />
-              </div>
-
-              {/* Amount Out section for new trade */}
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">Amount Out ($)</Label>
-                {newExits.map((val, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="text-muted-foreground text-xs w-6 shrink-0">
-                      TP{idx + 1}
-                    </span>
+                {/* Amount In */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Amount In</label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
-                      value={val}
-                      onChange={(e) => updateNewExit(idx, e.target.value)}
+                      value={newAmountIn}
+                      onChange={(e) => setNewAmountIn(e.target.value)}
                       placeholder="0.00"
-                      className="h-7 text-sm flex-1"
+                      className="h-8 text-sm pl-6"
                       disabled={saving}
                     />
+                  </div>
+                </div>
+
+                {/* Amount Out */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Amount Out</label>
+                  <div className="flex flex-col gap-1.5">
+                    {newExits.map((val, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground w-5 shrink-0 text-right">
+                          {idx + 1}.
+                        </span>
+                        <div className="relative flex-1">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={val}
+                            onChange={(e) => updateNewExit(idx, e.target.value)}
+                            placeholder="0.00"
+                            className="h-7 text-sm pl-6"
+                            disabled={saving}
+                          />
+                        </div>
+                        {newExits.length > 1 && (
+                          <button
+                            onClick={() => removeNewExit(idx)}
+                            disabled={saving}
+                            className="text-muted-foreground hover:text-red-500 disabled:opacity-40 cursor-pointer shrink-0 p-0.5 transition-colors"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                     <button
-                      onClick={() => removeNewExit(idx)}
+                      onClick={addNewExit}
                       disabled={saving}
-                      className="text-muted-foreground hover:text-red-500 text-xs disabled:opacity-40 cursor-pointer shrink-0"
+                      className="text-xs text-muted-foreground hover:text-foreground text-left disabled:opacity-40 cursor-pointer flex items-center gap-1 transition-colors"
                     >
-                      ✕
+                      <Plus className="size-3" />
+                      Add exit
                     </button>
                   </div>
-                ))}
-                <button
-                  onClick={addNewExit}
-                  disabled={saving}
-                  className="text-xs text-muted-foreground hover:text-foreground text-left disabled:opacity-40 cursor-pointer"
-                >
-                  + Add amount out
-                </button>
-              </div>
+                </div>
 
-              <Button
-                onClick={handleAddLocalEntry}
-                disabled={saving || !newAmountIn}
-                className="shrink-0 mt-1"
-                variant="outline"
+                <Button
+                  onClick={handleAddLocalEntry}
+                  disabled={saving || !newAmountIn}
+                  className="w-full mt-1"
+                  size="sm"
+                >
+                  <Plus className="size-4 mr-1" />
+                  Add Trade
+                </Button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAddForm(true)}
+                disabled={saving}
+                className="w-full rounded-lg border border-dashed py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-40"
               >
+                <Plus className="size-4" />
                 Add Trade
-              </Button>
-            </div>
+              </button>
+            )}
           </div>
 
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && (
+            <p className="text-xs text-red-500 mt-3">{error}</p>
+          )}
         </div>
 
-        {/* ── Save / Cancel ── */}
-        <div className="flex justify-end gap-2 pt-3 border-t shrink-0">
-          <Button variant="outline" onClick={() => onClose()} disabled={saving}>
+        {/* ── Footer ── */}
+        <Separator />
+        <div className="flex justify-end gap-2 px-6 py-4 shrink-0">
+          <Button variant="outline" size="sm" onClick={() => onClose()} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || !dirty}>
-            {saving ? "Saving..." : "Save"}
+          <Button size="sm" onClick={handleSave} disabled={saving || !dirty}>
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </DialogContent>
