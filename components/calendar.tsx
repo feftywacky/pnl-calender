@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DayCell } from "@/components/day-cell";
 import { TradeDialog } from "@/components/trade-dialog";
 import { getTradesForMonth } from "@/lib/actions/trades";
@@ -25,6 +25,17 @@ function entryPnl(entry: TradeEntry) {
   return totalOut - Number(entry.amount_in);
 }
 
+function cacheKey(y: number, m: number) {
+  return `${y}-${m}`;
+}
+
+function adjacentMonths(y: number, m: number): [number, number][] {
+  return [
+    m === 0 ? [y - 1, 11] : [y, m - 1],
+    m === 11 ? [y + 1, 0] : [y, m + 1],
+  ];
+}
+
 export function Calendar({
   initialTrades,
   initialYear,
@@ -35,15 +46,53 @@ export function Calendar({
   const [entries, setEntries] = useState<TradeEntry[]>(initialTrades);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const fetchTrades = useCallback(async () => {
-    const data = await getTradesForMonth(year, month);
+  // Client-side cache: month key -> trade entries
+  const cache = useRef(new Map<string, TradeEntry[]>());
+
+  // Seed the cache with SSR data so we never re-fetch the initial month
+  const seeded = useRef(false);
+  if (!seeded.current) {
+    cache.current.set(cacheKey(initialYear, initialMonth), initialTrades);
+    seeded.current = true;
+  }
+
+  // Prefetch adjacent months in the background (non-blocking)
+  const prefetch = useCallback((y: number, m: number) => {
+    for (const [ay, am] of adjacentMonths(y, m)) {
+      const key = cacheKey(ay, am);
+      if (!cache.current.has(key)) {
+        getTradesForMonth(ay, am).then((data) => {
+          cache.current.set(key, data);
+        });
+      }
+    }
+  }, []);
+
+  const fetchTrades = useCallback(async (y: number, m: number, forceRefresh = false) => {
+    const key = cacheKey(y, m);
+
+    if (!forceRefresh && cache.current.has(key)) {
+      setEntries(cache.current.get(key)!);
+      // Still prefetch adjacent months
+      prefetch(y, m);
+      return;
+    }
+
+    setLoading(true);
+    const data = await getTradesForMonth(y, m);
+    cache.current.set(key, data);
     setEntries(data);
-  }, [year, month]);
+    setLoading(false);
+
+    // Prefetch adjacent months after current month loads
+    prefetch(y, m);
+  }, [prefetch]);
 
   useEffect(() => {
-    fetchTrades();
-  }, [fetchTrades]);
+    fetchTrades(year, month);
+  }, [year, month, fetchTrades]);
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(year - 1); }
@@ -63,7 +112,8 @@ export function Calendar({
   function handleDialogClose() {
     setDialogOpen(false);
     setSelectedDate(null);
-    fetchTrades();
+    // Force refresh current month since trades may have been edited
+    fetchTrades(year, month, true);
   }
 
   const firstDayOfMonth = new Date(year, month, 1).getDay();
@@ -138,7 +188,7 @@ export function Calendar({
           </div>
 
           {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className={`grid grid-cols-7 gap-1 transition-opacity duration-150 ${loading ? "opacity-50" : "opacity-100"}`}>
         {cells.map((day, i) => {
           if (day === null) {
             return <div key={`empty-${i}`} className="w-full h-full" />;
