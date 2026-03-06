@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/ui/mode-toggle";
 import Link from "next/link";
 
 export function Header({
@@ -54,6 +55,7 @@ export function Header({
           <span className="text-sm text-muted-foreground">
             {displayName || email}
           </span>
+          <ModeToggle />
           <Button variant="outline" size="sm" onClick={handleLogout}>
             Sign Out
           </Button>

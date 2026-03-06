@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/ui/mode-toggle";
 import { BarChart2, CalendarDays, TrendingUp } from "lucide-react";
 
 export default function LandingPage() {
@@ -12,6 +13,7 @@ export default function LandingPage() {
             PnL Calendar
           </span>
           <div className="flex items-center gap-3">
+            <ModeToggle />
             <Button variant="ghost" size="sm" asChild>
               <Link href="/login">Sign In</Link>
             </Button>
